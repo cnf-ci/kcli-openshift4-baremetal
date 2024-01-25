@@ -22,7 +22,7 @@
 {% if deploy_openshift %}
  notifyscript: {{ notifyscript }}
 {% elif launch_steps %}
- notifycmd: ls /root/bin/openshift-baremetal-install
+ notifycmd: openshift-install version
 {% else %}
  notifycmd: echo machine $(hostname) ready at $(hostname -I)
 {% endif %}

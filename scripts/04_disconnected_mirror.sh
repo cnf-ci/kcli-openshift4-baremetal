@@ -27,13 +27,10 @@ REGISTRY_NAME=$(echo $IP | sed 's/\./-/g' | sed 's/:/-/g').sslip.io
 REGISTRY_PORT={{ 8443 if disconnected_quay else 5000 }}
 {% endif %}
 
-DISCONNECTED_PREFIX=openshift/release
-DISCONNECTED_PREFIX_IMAGES=openshift/release-images
-
-export OPENSHIFT_RELEASE_IMAGE=$( openshift-baremetal-install version | grep 'release image' | awk -F ' ' '{print $3}')
+export OPENSHIFT_RELEASE_IMAGE=$(openshift-install version | grep 'release image' | awk -F ' ' '{print $3}')
 export LOCAL_REG="$REGISTRY_NAME:$REGISTRY_PORT"
-export OCP_RELEASE=$(/root/bin/openshift-baremetal-install version | head -1 | cut -d' ' -f2)-x86_64
-oc adm release mirror -a $PULL_SECRET --from=$OPENSHIFT_RELEASE_IMAGE --to-release-image=${LOCAL_REG}/$DISCONNECTED_PREFIX_IMAGES:${OCP_RELEASE} --to=${LOCAL_REG}/$DISCONNECTED_PREFIX
+export OCP_RELEASE=$(openshift-install version | head -1 | cut -d' ' -f2)-x86_64
+oc adm release mirror -a $PULL_SECRET --from=$OPENSHIFT_RELEASE_IMAGE --to-release-image=${LOCAL_REG}/openshift/release-images:${OCP_RELEASE} --to=${LOCAL_REG}/openshift/release
 
 {% for release in disconnected_extra_releases %}
 EXTRA_OCP_RELEASE={{ release.split(':')[1] }}
