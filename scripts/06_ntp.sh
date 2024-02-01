@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
+set -x
 
 export NTP_DATA=$((cat << EOF
     pool {{ ntp_server }} iburst 

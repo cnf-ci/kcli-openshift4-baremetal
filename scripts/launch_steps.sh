@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
+set -x
 
 blue='\033[0;36m'
 clear='\033[0m'

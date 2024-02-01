@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
+set -x
 
 export KUBECONFIG=/root/ocp/auth/kubeconfig
 echo "Report from vm: $(hostname) ip: $(hostname -I | cut -d' ' -f1)"
