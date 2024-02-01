@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
+set -x
 
 PRIMARY_NIC=$(ls -1 /sys/class/net | grep 'eth\|en' | head -1)
 export KUBECONFIG=/root/ocp/auth/kubeconfig

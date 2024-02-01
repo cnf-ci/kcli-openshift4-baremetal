@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
+set -x
 
 {% for app in apps %}
 {% if app != 'users' %}
