@@ -12,4 +12,24 @@ REGISTRY_PORT={{ 8443 if disconnected_quay else 5000 }}
 
 PULL_SECRET="/root/openshift_pull.json"
 image=$1
-skopeo copy docker://$image docker://$REGISTRY_NAME:$REGISTRY_PORT/$(echo $image | cut -d'/' -f 2- ) --all --authfile $PULL_SECRET --insecure-policy
+
+# retry this command at least 10 times until it succeeds or exit with error
+for i in {1..10}; do
+    status=0
+
+    skopeo copy docker://$image docker://$REGISTRY_NAME:$REGISTRY_PORT/$(echo $image | cut -d'/' -f 2- ) --all --authfile $PULL_SECRET --insecure-policy || status=$?
+
+    if [ $status -eq 0 ]; then
+        break
+    else
+        echo "Failed to sync image $image to $REGISTRY_NAME:$REGISTRY_PORT, retrying..."
+        sleep 30
+    fi
+done
+# exit with error if the command is not successful
+if [ $status -ne 0 ]; then
+    echo "Failed to sync image $image to $REGISTRY_NAME:$REGISTRY_PORT"
+    exit 1
+fi
+
+
