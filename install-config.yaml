@@ -134,6 +134,7 @@ platform:
         {% endif %}
         {% else %}
         address: redfish-virtualmedia://CHANGEME:9000/redfish/v1/Systems/kcli/{{ cluster }}-master-{{ num }}
+        disableCertificateVerification: True
         {% endif %}
         username: {{ master['bmc_user']|default(bmc_user) }}
         password: {{ master['bmc_password']|default(bmc_password) }}
@@ -184,6 +185,7 @@ platform:
         {% endif %}
         {% else %}
         address: redfish-virtualmedia://CHANGEME:9000/redfish/v1/Systems/kcli/{{ cluster }}-worker-{{ num }}
+        disableCertificateVerification: True
         {% endif %}
         username: {{ worker['bmc_user']|default(bmc_user) }}
         password: {{ worker['bmc_password']|default(bmc_password) }}
