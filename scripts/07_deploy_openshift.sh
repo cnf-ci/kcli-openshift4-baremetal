@@ -8,6 +8,7 @@ export PATH=/root/bin:$PATH
 export HOME=/root
 export KUBECONFIG=/root/ocp/auth/kubeconfig
 export OPENSHIFT_INSTALL_RELEASE_IMAGE_OVERRIDE=$(cat /root/version.txt)
+export OPENSHIFT_INSTALL_EXPERIMENTAL_DISABLE_IMAGE_POLICY=true
 bash /root/bin/clean.sh || true
 mkdir -p ocp/openshift
 python3 /root/bin/redfish.py off
