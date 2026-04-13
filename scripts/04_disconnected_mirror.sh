@@ -33,7 +33,37 @@ DISCONNECTED_PREFIX_IMAGES=openshift/release-images
 export OPENSHIFT_RELEASE_IMAGE=$( openshift-baremetal-install version | grep 'release image' | awk -F ' ' '{print $3}')
 export LOCAL_REG="$REGISTRY_NAME:$REGISTRY_PORT"
 export OCP_RELEASE=$(/root/bin/openshift-baremetal-install version | head -1 | cut -d' ' -f2)-x86_64
-oc adm release mirror -a $PULL_SECRET --from=$OPENSHIFT_RELEASE_IMAGE --to-release-image=${LOCAL_REG}/$DISCONNECTED_PREFIX_IMAGES:${OCP_RELEASE} --to=${LOCAL_REG}/$DISCONNECTED_PREFIX
+
+MAX_RETRIES=5
+RETRY_COUNT=0
+SUCCESS=false
+
+while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+  echo "Mirroring attempt $((RETRY_COUNT + 1)) of $MAX_RETRIES..."
+# Run the mirror command
+  if oc adm release mirror -a "$PULL_SECRET" \
+    --from="$OPENSHIFT_RELEASE_IMAGE" \
+    --to-release-image="${LOCAL_REG}/$DISCONNECTED_PREFIX_IMAGES:${OCP_RELEASE}" \
+    --to="${LOCAL_REG}/$DISCONNECTED_PREFIX"; then
+    SUCCESS=true
+    break
+  fi
+
+  RETRY_COUNT=$((RETRY_COUNT + 1))
+
+  if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+    echo "Mirroring hit an error. Retrying in 10 seconds..."
+    sleep 10
+  fi
+done
+
+# Final status check
+if [ "$SUCCESS" = true ]; then
+  echo "Mirroring completed successfully!"
+else
+  echo "ERROR: Mirroring failed after $MAX_RETRIES attempts."
+  exit 1
+fi
 
 {% for release in disconnected_extra_releases %}
 EXTRA_OCP_RELEASE={{ release.split(':')[1] }}
