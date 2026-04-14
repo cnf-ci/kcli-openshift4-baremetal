@@ -34,7 +34,12 @@ export OPENSHIFT_RELEASE_IMAGE=$(curl -Ls https://mirror.openshift.com/pub/opens
 {% elif version == 'latest' %}
 export OPENSHIFT_RELEASE_IMAGE=$(curl -Ls https://mirror.openshift.com/pub/openshift-v4/clients/ocp/{{ version }}-{{ tag }}/release.txt | grep 'Pull From: quay.io' | awk -F ' ' '{print $3}')
 {% elif version == 'ci' %}
+{% set major = (tag|string).split('.')[0]|int %}
+{% if major >= 5 %}
+export OPENSHIFT_RELEASE_IMAGE={{ openshift_image or "registry.ci.openshift.org/ocp/release-" + major|string + ":" + tag|string }}
+{% else %}
 export OPENSHIFT_RELEASE_IMAGE={{ openshift_image or "registry.ci.openshift.org/ocp/release:" + tag|string }}
+{% endif %}
 {% elif version == 'nightly' %}
 export OPENSHIFT_RELEASE_IMAGE=$(curl -Ls https://amd64.ocp.releases.ci.openshift.org/api/v1/releasestream/{{ tag|string }}.0-0.nightly/latest | jq -r .pullSpec)
 {% endif %}

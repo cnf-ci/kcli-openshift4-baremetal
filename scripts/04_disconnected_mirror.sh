@@ -33,6 +33,7 @@ DISCONNECTED_PREFIX_IMAGES=openshift/release-images
 export OPENSHIFT_RELEASE_IMAGE=$( openshift-baremetal-install version | grep 'release image' | awk -F ' ' '{print $3}')
 export LOCAL_REG="$REGISTRY_NAME:$REGISTRY_PORT"
 export OCP_RELEASE=$(/root/bin/openshift-baremetal-install version | head -1 | cut -d' ' -f2)-x86_64
+OCP_MAJOR_VERSION=$(echo $OCP_RELEASE | cut -d'.' -f1)
 
 MAX_RETRIES=5
 RETRY_COUNT=0
@@ -70,16 +71,33 @@ EXTRA_OCP_RELEASE={{ release.split(':')[1] }}
 oc adm release mirror -a $PULL_SECRET --from={{ release }} --to-release-image=${LOCAL_REG}/$DISCONNECTED_PREFIX_IMAGES:${EXTRA_OCP_RELEASE} --to=${LOCAL_REG}/$DISCONNECTED_PREFIX
 {% endfor %}
 
+{% set major = (tag|string).split('.')[0]|int %}
+ART_DEV_V4_REPO="quay.io/openshift-release-dev/ocp-v4.0-art-dev"
+if [ "$OCP_MAJOR_VERSION" -ge 5 ]; then
+  ART_DEV_REPO="quay.io/openshift-release-dev/ocp-v${OCP_MAJOR_VERSION}.0-art-dev"
+else
+  ART_DEV_REPO="$ART_DEV_V4_REPO"
+fi
+
 if [ "$(grep imageContentSources /root/install-config.yaml)" == "" ] ; then
 cat << EOF >> /root/install-config.yaml
 imageContentSources:
 - mirrors:
   - $REGISTRY_NAME:$REGISTRY_PORT/$DISCONNECTED_PREFIX
-  source: quay.io/openshift-release-dev/ocp-v4.0-art-dev
+  source: $ART_DEV_REPO
+{% if major >= 5 %}
+- mirrors:
+  - $REGISTRY_NAME:$REGISTRY_PORT/$DISCONNECTED_PREFIX
+  source: $ART_DEV_V4_REPO
+{% endif %}
 - mirrors:
   - $REGISTRY_NAME:$REGISTRY_PORT/$DISCONNECTED_PREFIX_IMAGES
 {% if version == 'ci' %}
+{% if major >= 5 %}
+  source: registry.ci.openshift.org/ocp/release-{{ major }}
+{% else %}
   source: registry.ci.openshift.org/ocp/release
+{% endif %}
 {% elif version == 'nightly' %}
   source: quay.io/openshift-release-dev/ocp-release-nightly
 {% else %}
@@ -87,7 +105,16 @@ imageContentSources:
 {% endif %}
 EOF
 else
-  IMAGECONTENTSOURCES="- mirrors:\n  - $REGISTRY_NAME:$REGISTRY_PORT/$DISCONNECTED_PREFIX\n  source: quay.io/openshift-release-dev/ocp-v4.0-art-dev\n- mirrors:\n  - $REGISTRY_NAME:$REGISTRY_PORT/$DISCONNECTED_PREFIX_IMAGES\n  source: registry.ci.openshift.org/ocp/release"
+  {% if major >= 5 %}
+  RELEASE_SOURCE="registry.ci.openshift.org/ocp/release-{{ major }}"
+  {% else %}
+  RELEASE_SOURCE="registry.ci.openshift.org/ocp/release"
+  {% endif %}
+  IMAGECONTENTSOURCES="- mirrors:\n  - $REGISTRY_NAME:$REGISTRY_PORT/$DISCONNECTED_PREFIX\n  source: $ART_DEV_REPO"
+  if [ "$OCP_MAJOR_VERSION" -ge 5 ]; then
+    IMAGECONTENTSOURCES="$IMAGECONTENTSOURCES\n- mirrors:\n  - $REGISTRY_NAME:$REGISTRY_PORT/$DISCONNECTED_PREFIX\n  source: $ART_DEV_V4_REPO"
+  fi
+  IMAGECONTENTSOURCES="$IMAGECONTENTSOURCES\n- mirrors:\n  - $REGISTRY_NAME:$REGISTRY_PORT/$DISCONNECTED_PREFIX_IMAGES\n  source: $RELEASE_SOURCE"
   sed -i "/imageContentSources/a${IMAGECONTENTSOURCES}" /root/install-config.yaml
 fi
 
