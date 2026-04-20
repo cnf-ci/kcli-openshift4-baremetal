@@ -99,12 +99,6 @@ platform:
   baremetal:
     apiVIP: {{ api_ip }}
     ingressVIP: {{ ingress_ip }}
-{% if baremetal_bootstrap_os_image != None %}
-    bootstrapOSImage: {{ baremetal_bootstrap_os_image }}
-{% endif %}
-{% if baremetal_cluster_os_image != None %}
-    clusterOSImage: {{ baremetal_cluster_os_image }}
-{% endif %}
     provisioningNetwork: "Disabled"
 {% if baremetal_noprovisioning_ip != None %}
     provisioningHostIP: {{ baremetal_noprovisioning_ip }}
