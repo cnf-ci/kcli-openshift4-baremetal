@@ -59,6 +59,11 @@ cp /root/machineconfigs/99-localhost-fix*.yaml /root/manifests
 {% if monitoring_retention != None %}
 cp /root/machineconfigs/99-monitoring.yaml /root/manifests
 {% endif %}
+{% if baremetal_cidr != None and ':' in baremetal_cidr %}
+for f in manifests/*.yaml.ipv6; do
+  [ -e "$f" ] && mv "$f" "${f%.ipv6}"
+done
+{% endif %}
 find manifests -type f -empty -print -delete
 cp manifests/*y*ml >/dev/null 2>&1 ocp/openshift || true
 grep -q "{{ api_ip }} api.{{ cluster }}.{{ domain }}" /etc/hosts || echo {{ api_ip }} api.{{ cluster }}.{{ domain }} >> /etc/hosts
@@ -68,6 +73,42 @@ NIC=ens3
 NICDATA="$(cat /root/static_network/ifcfg-bootstrap | base64 -w0)"
 cp /root/ocp/bootstrap.ign /root/ocp/bootstrap.ign.ori
 cat /root/ocp/bootstrap.ign.ori | jq ".storage.files |= . + [{\"filesystem\": \"root\", \"mode\": 420, \"path\": \"/etc/sysconfig/network-scripts/ifcfg-$NIC\", \"contents\": {\"source\": \"data:text/plain;charset=utf-8;base64,$NICDATA\", \"verification\": {}}}]" > /root/ocp/bootstrap.ign
+{% endif %}
+{% if baremetal_cidr != None and ':' in baremetal_cidr %}
+[ -f /root/ocp/bootstrap.ign ] || openshift-baremetal-install --dir ocp --log-level debug create ignition-configs
+python3 - <<'PYEOF'
+import json, base64
+
+path = "/root/ocp/bootstrap.ign"
+with open(path) as f:
+    ign = json.load(f)
+
+OLD = "--node-ip=::"
+# Pick the host's first global-scope IPv6 address at boot time, ignoring
+# any stray IPv4 DHCP lease the lab network hands out alongside it.
+NEW = ("--node-ip=$(ip -6 -o addr show scope global | awk '{print $4}' "
+       "| cut -d/ -f1 | grep -v '^fd' | head -1)")
+
+patched = False
+for entry in ign["storage"]["files"]:
+    if entry["path"] == "/usr/local/bin/kubelet.sh":
+        prefix, b64 = entry["contents"]["source"].split(",", 1)
+        content = base64.b64decode(b64).decode()
+        if OLD not in content:
+            raise SystemExit(f"marker {OLD!r} not found in kubelet.sh - installer template changed, check manually")
+        content = content.replace(OLD, NEW)
+        entry["contents"]["source"] = prefix + "," + base64.b64encode(content.encode()).decode()
+        patched = True
+        break
+
+if not patched:
+    raise SystemExit("kubelet.sh entry not found in bootstrap.ign")
+
+with open(path, "w") as f:
+    json.dump(ign, f)
+
+print("bootstrap.ign patched: kubelet node-ip now resolved dynamically to IPv6")
+PYEOF
 {% endif %}
 openshift-baremetal-install --dir ocp --log-level debug create cluster || true
 openshift-baremetal-install --dir ocp --log-level debug wait-for install-complete || openshift-baremetal-install --dir ocp --log-level debug wait-for install-complete

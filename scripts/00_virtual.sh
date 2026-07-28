@@ -15,7 +15,7 @@ dnf -y copr enable karmab/kcli
 dnf -y install kcli
 
 SUSHYFLAGS={{ "--ipv6" if ':' in baremetal_cidr else "" }}
-kcli create sushy-service $SUSHYFLAGS
+kcli create sushy-service #  $SUSHYFLAGS
 
 ssh-keyscan -H {{ config_host if config_host not in ['127.0.0.1', 'localhost'] else baremetal_net|local_ip }} >> /root/.ssh/known_hosts
 echo -e "Host=*\nStrictHostKeyChecking=no\n" > /root/.ssh/config

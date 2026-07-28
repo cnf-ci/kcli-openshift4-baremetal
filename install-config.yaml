@@ -1,4 +1,14 @@
 {% import 'static_network/config.j2' as static_network %}
+{% macro nat64_bmc_address(addr) -%}
+{%- set parts = addr.split('.') -%}
+{%- if ipv6 and parts|length == 4 and parts[0].isdigit() and parts[1].isdigit() and parts[2].isdigit() and parts[3].isdigit() -%}
+{%- set high = (parts[0]|int) * 256 + (parts[1]|int) -%}
+{%- set low = (parts[2]|int) * 256 + (parts[3]|int) -%}
+[64:ff9b::{{ '%x'|format(high) }}:{{ '%x'|format(low) }}]
+{%- else -%}
+{{ addr }}
+{%- endif -%}
+{%- endmacro %}
 {% set baremetal_prefix = baremetal_cidr.split('/')[1] %}
 {% set baremetal_gateway = static_baremetal_gateway or baremetal_cidr|network_ip(1 if lab else -2) %}
 {% set baremetal_dns = static_baremetal_dns or baremetal_gateway %}
@@ -99,12 +109,6 @@ platform:
   baremetal:
     apiVIP: {{ api_ip }}
     ingressVIP: {{ ingress_ip }}
-{% if baremetal_bootstrap_os_image != None %}
-    bootstrapOSImage: {{ baremetal_bootstrap_os_image }}
-{% endif %}
-{% if baremetal_cluster_os_image != None %}
-    clusterOSImage: {{ baremetal_cluster_os_image }}
-{% endif %}
     provisioningNetwork: "Disabled"
 {% if baremetal_noprovisioning_ip != None %}
     provisioningHostIP: {{ baremetal_noprovisioning_ip }}
@@ -128,9 +132,9 @@ platform:
         {% if 'redfish' in master['redfish_address'] or 'idrac' in master['redfish_address'] %}
         address: {{ master['redfish_address'] }}
         {% elif master['model']|default(model) in ['hp', 'hpe', 'supermicro'] %}
-        address: redfish-virtualmedia://{{ master['redfish_address'] }}/redfish/v1/Systems/1
+        address: redfish-virtualmedia://{{ nat64_bmc_address(master['redfish_address']) }}/redfish/v1/Systems/1
         {% else %}
-        address: idrac-virtualmedia://{{ master['redfish_address'] }}/redfish/v1/Systems/System.Embedded.1
+        address: idrac-virtualmedia://{{ nat64_bmc_address(master['redfish_address']) }}/redfish/v1/Systems/System.Embedded.1
         {% endif %}
         {% else %}
         address: redfish-virtualmedia://CHANGEME:9000/redfish/v1/Systems/kcli/{{ cluster }}-master-{{ num }}
@@ -167,6 +171,27 @@ platform:
       {% elif 'network_config' in master %}
       networkConfig:
         {{ master['network_config']|replace('\n', '\n        ') }}
+      {% elif static_baremetal_dns %}
+      networkConfig:
+        dns-resolver:
+          config:
+            search:
+            - {{ cluster }}.{{ domain }}
+            server:
+            - {{ static_baremetal_dns }}
+        routes:
+          config:
+          - destination: 64:ff9b::/96
+            next-hop-address: {{ static_baremetal_dns }}
+            next-hop-interface: {{ master['nic']|default(nic) }}
+        interfaces:
+        - name: {{ master['nic']|default(nic) }}
+          type: ethernet
+          state: up
+          {{ 'ipv6' if ipv6 else 'ipv4' }}:
+            enabled: true
+            dhcp: true
+            autoconf: true
       {% endif %}
 {% endfor %}
 {% for worker in workers %}
@@ -179,9 +204,9 @@ platform:
         {% if 'redfish' in worker['redfish_address'] or 'idrac' in worker['redfish_address'] or 'ilo5' in worker['redfish_address'] %}
         address: {{ worker['redfish_address'] }}
         {% elif worker['model']|default(model) in ['hp', 'hpe', 'supermicro'] %}
-        address: redfish-virtualmedia://{{ worker['redfish_address'] }}/redfish/v1/Systems/1
+        address: redfish-virtualmedia://{{ nat64_bmc_address(worker['redfish_address']) }}/redfish/v1/Systems/1
         {% else %}
-        address: idrac-virtualmedia://{{ worker['redfish_address'] }}/redfish/v1/Systems/System.Embedded.1
+        address: idrac-virtualmedia://{{ nat64_bmc_address(worker['redfish_address']) }}/redfish/v1/Systems/System.Embedded.1
         {% endif %}
         {% else %}
         address: redfish-virtualmedia://CHANGEME:9000/redfish/v1/Systems/kcli/{{ cluster }}-worker-{{ num }}
@@ -219,6 +244,27 @@ platform:
       {% elif 'network_config' in worker %}
       networkConfig:
         {{ worker['network_config']|replace('\n', '\n        ') }}
+      {% elif static_baremetal_dns %}
+      networkConfig:
+        dns-resolver:
+          config:
+            search:
+            - {{ cluster }}.{{ domain }}
+            server:
+            - {{ static_baremetal_dns }}
+        routes:
+          config:
+          - destination: 64:ff9b::/96
+            next-hop-address: {{ static_baremetal_dns }}
+            next-hop-interface: {{ worker['nic']|default(nic) }}
+        interfaces:
+        - name: {{ worker['nic']|default(nic) }}
+          type: ethernet
+          state: up
+          {{ 'ipv6' if ipv6 else 'ipv4' }}:
+            enabled: true
+            dhcp: true
+            autoconf: true
       {% endif %}
 {% endfor %}
 {% if cas %}

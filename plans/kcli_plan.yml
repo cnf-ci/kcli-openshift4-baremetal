@@ -39,7 +39,7 @@
 {% endif %}
    ipv6: {{ true if baremetal_cidr != None and ':' in baremetal_cidr else false }}
 {% if baremetal_cidr != None and ':' in baremetal_cidr and not dualstack %}
- - default
+ - name: {{ baremetal_net }}
 {% endif %}
  disks:
  - {{ installer_disk_size or disk_size }}
@@ -91,7 +91,27 @@
  - origin: {{ manifests_dir }}
    path: /root/manifests
 {% endif %}
-{% if launch_steps %}
+{% if baremetal_cidr != None and ':' in baremetal_cidr %}
+ - path: /etc/NetworkManager/dispatcher.d/90-nat64-route.sh
+   mode: 755
+   content: |
+    #!/bin/bash
+    set -eu
+    IFACE="$1"
+    STATUS="$2"
+    NAT64_GW="{{ static_baremetal_dns }}"
+    NAT64_PREFIX="64:ff9b::/96"
+    if [ "$IFACE" = "eth0" ] && { [ "$STATUS" = "up" ] || [ "$STATUS" = "connectivity-change" ]; }; then
+      ip -6 route replace "$NAT64_PREFIX" via "$NAT64_GW" dev eth0
+    fi
+{% endif %}
+{% if launch_steps or (baremetal_cidr != None and ':' in baremetal_cidr) %}
  cmds:
+{% if baremetal_cidr != None and ':' in baremetal_cidr %}
+ - chmod +x /etc/NetworkManager/dispatcher.d/90-nat64-route.sh
+ - ip -6 route replace 64:ff9b::/96 via {{ static_baremetal_dns }} dev eth0
+{% endif %}
+{% if launch_steps %}
  - bash /root/scripts/launch_steps.sh
+{% endif %}
 {% endif %}
