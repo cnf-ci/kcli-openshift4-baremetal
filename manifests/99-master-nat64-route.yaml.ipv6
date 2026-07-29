@@ -1,3 +1,15 @@
+{% set nat64_route_script %}
+#!/bin/bash
+set -eu
+IFACE="$1"
+STATUS="$2"
+NAT64_GW="{{ static_baremetal_dns }}"
+NAT64_PREFIX="64:ff9b::/96"
+
+if [ "$IFACE" = "br-ex" ] && { [ "$STATUS" = "up" ] || [ "$STATUS" = "connectivity-change" ]; }; then
+  ip -6 route replace "$NAT64_PREFIX" via "$NAT64_GW" dev br-ex
+fi
+{% endset %}
 apiVersion: machineconfiguration.openshift.io/v1
 kind: MachineConfig
 metadata:
@@ -11,7 +23,7 @@ spec:
     storage:
       files:
         - contents:
-            source: data:text/plain;charset=utf-8;base64,IyEvYmluL2Jhc2gKc2V0IC1ldQpJRkFDRT0iJDEiClNUQVRVUz0iJDIiCk5BVDY0X0dXPSIyNjIwOjUyOjk6MTY2OTo1MDU0OmZmOmZlMDM6ZGIyMSIKTkFUNjRfUFJFRklYPSI2NDpmZjliOjovOTYiCgppZiBbICIkSUZBQ0UiID0gImJyLWV4IiBdICYmIHsgWyAiJFNUQVRVUyIgPSAidXAiIF0gfHwgWyAiJFNUQVRVUyIgPSAiY29ubmVjdGl2aXR5LWNoYW5nZSIgXTsgfTsgdGhlbgogIGlwIC02IHJvdXRlIHJlcGxhY2UgIiROQVQ2NF9QUkVGSVgiIHZpYSAiJE5BVDY0X0dXIiBkZXYgYnItZXgKZmkK
+            source: data:text/plain;charset=utf-8,{{ nat64_route_script | trim | urlencode }}
             verification: {}
           filesystem: root
           mode: 493
