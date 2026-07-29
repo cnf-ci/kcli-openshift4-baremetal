@@ -1,0 +1,18 @@
+apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfig
+metadata:
+  name: 99-worker-nat64-route
+  labels:
+    machineconfiguration.openshift.io/role: worker
+spec:
+  config:
+    ignition:
+      version: 2.2.0
+    storage:
+      files:
+        - contents:
+            source: data:text/plain;charset=utf-8;base64,IyEvYmluL2Jhc2gKc2V0IC1ldQpJRkFDRT0iJDEiClNUQVRVUz0iJDIiCk5BVDY0X0dXPSIyNjIwOjUyOjk6MTY2OTo1MDU0OmZmOmZlMDM6ZGIyMSIKTkFUNjRfUFJFRklYPSI2NDpmZjliOjovOTYiCgppZiBbICIkSUZBQ0UiID0gImJyLWV4IiBdICYmIHsgWyAiJFNUQVRVUyIgPSAidXAiIF0gfHwgWyAiJFNUQVRVUyIgPSAiY29ubmVjdGl2aXR5LWNoYW5nZSIgXTsgfTsgdGhlbgogIGlwIC02IHJvdXRlIHJlcGxhY2UgIiROQVQ2NF9QUkVGSVgiIHZpYSAiJE5BVDY0X0dXIiBkZXYgYnItZXgKZmkK
+            verification: {}
+          filesystem: root
+          mode: 493
+          path: /etc/NetworkManager/dispatcher.d/90-nat64-route.sh
