@@ -43,9 +43,15 @@ export OPENSHIFT_RELEASE_IMAGE={{ openshift_image or "registry.ci.openshift.org/
 {% elif version == 'nightly' %}
 export OPENSHIFT_RELEASE_IMAGE=$(curl -Ls https://amd64.ocp.releases.ci.openshift.org/api/v1/releasestream/{{ tag|string }}.0-0.nightly/latest | jq -r .pullSpec)
 {% endif %}
-oc adm release extract --registry-config $PULL_SECRET --command=oc --to /tmp $OPENSHIFT_RELEASE_IMAGE
-mv /tmp/oc /root/bin
-oc adm release extract --registry-config $PULL_SECRET --command=openshift-baremetal-install --to /root/bin $OPENSHIFT_RELEASE_IMAGE
+# Extracted binaries can come out truncated without extract failing, so verify they run and retry
+for i in 1 2 3; do
+  /usr/bin/oc adm release extract --registry-config $PULL_SECRET --command=oc --to /root/bin $OPENSHIFT_RELEASE_IMAGE &&
+  /usr/bin/oc adm release extract --registry-config $PULL_SECRET --command=openshift-baremetal-install --to /root/bin $OPENSHIFT_RELEASE_IMAGE &&
+  /root/bin/oc version --client && /root/bin/openshift-baremetal-install version && break
+  [ $i -eq 3 ] && exit 1
+  rm -f /root/bin/oc /root/bin/openshift-baremetal-install
+  sleep 30
+done
 echo $OPENSHIFT_RELEASE_IMAGE > /root/version.txt
 
 curl -s -L https://github.com/itaysk/kubectl-neat/releases/download/v2.0.3/kubectl-neat_linux_amd64.tar.gz | tar xvz -C /usr/bin/
